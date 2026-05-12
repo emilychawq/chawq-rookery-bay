@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Henderson Creek Corridor Restoration Program | C-HAWQ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1f396d; --green:#3f886c; --cyan:#2e9fc7; --slate:#7b8fa8;
+  --red:#cc3030; --white:#fff; --bg:#eef2f6; --border:#d0dde8;
+  --text:#1a2533; --sub:#6b7a8a;
+  --c-active:#1f396d; --c-p1:#3f886c; --c-p2:#2e9fc7; --c-p3:#7b8fa8;
+}
+html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;font-size:13px;background:var(--bg);color:var(--text);overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ── HEADER ── */
+#hdr{background:var(--navy);color:#fff;padding:8px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.brand{font-size:8.5px;font-weight:800;letter-spacing:3.5px;opacity:.6;padding-right:12px;border-right:1px solid rgba(255,255,255,.2);flex-shrink:0}
+#hdr h1{font-size:13px;font-weight:600;flex:1;line-height:1.2}
+.hpill{border-radius:20px;padding:3px 11px;font-size:8.5px;font-weight:700;letter-spacing:.6px;flex-shrink:0;white-space:nowrap}
+.hpill-neutral{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.7)}
+.hpill-warn{background:rgba(204,48,48,.25);border:1px solid rgba(255,100,100,.4);color:#ffbcbc}
+
+/* ── BODY ── */
+#mid{display:flex;flex:1;min-height:0}
+#mapcol{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+/* Map gets a fixed portion; timeline fills the rest and is independently scrollable */
+#map{height:42%;min-height:220px;flex-shrink:0}
+#tlsec{background:#fff;border-top:2.5px solid var(--navy);padding:8px 10px 6px;flex:1;min-height:0;display:flex;flex-direction:column}
+#tlhead{font-size:11.5px;font-weight:700;color:var(--navy);margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#tlhead em{font-style:normal;font-weight:400;color:var(--sub);font-size:9.5px}
+#tlscroll{overflow-x:auto;overflow-y:auto;flex:1;min-height:0}
+#tlscroll::-webkit-scrollbar{height:4px;width:4px}
+#tlscroll::-webkit-scrollbar-thumb{background:#ccd4de;border-radius:2px}
+
+/* ── SIDEBAR ── */
+#sb{width:320px;background:#fff;border-left:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#sb-inner{flex:1;overflow-y:auto;padding:0}
+#sb-inner::-webkit-scrollbar{width:4px}
+#sb-inner::-webkit-scrollbar-thumb{background:#ccd4de;border-radius:2px}
+
+/* LEGEND / DEFAULT CARD */
+#overview{padding:14px}
+.ov-title{font-size:9.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--sub);margin-bottom:11px}
+.ov-summary{background:var(--navy);color:#fff;border-radius:6px;padding:11px 13px;margin-bottom:12px}
+.ov-summary .ov-lead{font-size:11px;font-weight:600;opacity:.75;margin-bottom:3px}
+.ov-summary .ov-count{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.ov-summary .ov-sub{font-size:10.5px;opacity:.7;margin-top:3px}
+.phase-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.phase-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer;transition:background .12s;border:1px solid transparent}
+.phase-row:hover{background:#f0f4f8;border-color:var(--border)}
+.ph-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.ph-info{flex:1}
+.ph-name{font-size:11.5px;font-weight:600;line-height:1.25}
+.ph-desc{font-size:10px;color:var(--sub);margin-top:2px}
+.ph-count{font-size:10px;font-weight:700;border-radius:10px;padding:2px 9px;flex-shrink:0}
+.leg-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;color:#4a5a6a}
+.leg-swatch{width:22px;height:8px;border-radius:2px;flex-shrink:0}
+.ov-prompt{text-align:center;font-size:10.5px;color:var(--sub);font-style:italic;padding:8px 0 2px}
+
+/* PROJECT DETAIL PANEL */
+#pdet{display:none;flex-direction:column}
+.pd-nav{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--sub);cursor:pointer}
+.pd-nav:hover{color:var(--navy)}
+.pd-head{padding:12px 14px 10px;border-bottom:1px solid var(--border)}
+.pd-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.pd-name{font-size:14px;font-weight:700;color:var(--navy);line-height:1.35}
+.badge{border-radius:4px;padding:3px 9px;font-size:8.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.badge-active{background:var(--c-active);color:#fff}
+.badge-p1{background:var(--c-p1);color:#fff}
+.badge-p2{background:var(--c-p2);color:#fff}
+.badge-p3{background:var(--c-p3);color:#fff}
+.badge-leads{background:#1f6b50;color:#fff}
+.badge-partners{background:#194f8f;color:#fff}
+.badge-coordinates{background:#1a7a9a;color:#fff}
+.badge-guides{background:#1a7a9a;color:#fff}
+.badge-advises{background:#5a6a7a;color:#fff}
+.pd-body{padding:12px 14px;flex:1;overflow-y:auto}
+.pd-sec{margin-bottom:14px}
+.pd-lbl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--sub);margin-bottom:5px}
+.pd-val{font-size:11.5px;color:var(--text);line-height:1.65}
+
+/* IMAGE PLACEHOLDER */
+.img-frame{width:100%;height:108px;border-radius:5px;overflow:hidden;position:relative;background:#f4f7fa;border:1.5px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.img-frame-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:14px 14px;opacity:.45}
+.img-frame-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.img-frame svg{opacity:.35}
+.img-frame .ifl{font-size:9px;color:var(--sub);font-weight:500;text-align:center;line-height:1.4}
+.img-frame .ifn{font-size:8px;color:#9aaab8;text-align:center}
+.img-cap{font-size:8px;color:var(--sub);margin-top:3px;font-style:italic}
+
+/* ROLE BLOCK */
+.role-block{background:#f0f8f4;border-left:3px solid var(--green);border-radius:4px;padding:10px 12px;font-size:11.5px;color:#1a3a2a;line-height:1.65}
+.role-block.coord{background:#edf6fa;border-left-color:var(--cyan);color:#0a2535}
+.role-block.advise{background:#f5f6f8;border-left-color:var(--slate);color:#2a3a4a}
+
+/* LEAFLET */
+.leaflet-popup-content-wrapper{border-radius:7px;box-shadow:0 3px 14px rgba(0,0,0,.2);font-family:'DM Sans',sans-serif}
+.leaflet-popup-content{font-size:11px;line-height:1.5;max-width:220px;padding:2px 1px}
+.ptit{font-weight:700;font-size:12px;color:var(--navy);margin-bottom:3px}
+.ppb{display:inline-block;border-radius:3px;padding:1px 7px;font-size:8px;font-weight:700;text-transform:uppercase;margin-bottom:4px;color:#fff}
+.pst{font-size:10px;color:#5a6a7a}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hdr">
+    <div class="brand">C-HAWQ</div>
+    <h1>Henderson Creek Corridor — Watershed Restoration Program</h1>
+    <div class="hpill hpill-neutral">Rookery Bay · Collier County · May 2026</div>
+    <div class="hpill hpill-warn">⚑ HC SPEND DEADLINE: SEPT 2027</div>
+  </div>
+
+  <div id="mid">
+    <div id="mapcol">
+      <div id="map"></div>
+      <div id="tlsec">
+        <div id="tlhead">
+          Hypothetical Project Phasing — All Corridor Projects
+          <em>Click map or timeline · Circle size = relative project scale · Dashed red = Sept 2027 federal spend deadline</em>
+        </div>
+        <div id="tlscroll"><svg id="gantt"></svg></div>
+      </div>
+    </div>
+
+    <div id="sb">
+      <div id="sb-inner">
+
+        <!-- DEFAULT: OVERVIEW -->
+        <div id="overview">
+          <div class="ov-title">Henderson Creek Corridor</div>
+          <div class="ov-summary">
+            <div class="ov-lead">Total Corridor Projects</div>
+            <div class="ov-count">13</div>
+            <div class="ov-sub">$4M active · Phases 1–3 through 2031</div>
+          </div>
+
+          <div class="phase-rows">
+            <div class="phase-row" onclick="filterPhase('active'); filterPhase('p1');">
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                <div class="ph-dot" style="background:var(--c-active)"></div>
+                <div class="ph-dot" style="background:var(--c-p1)"></div>
+              </div>
+              <div class="ph-info">
+                <div class="ph-name" style="color:var(--navy)">C-HAWQ PARTNERS</div>
+                <div class="ph-desc">Active anchor + Phase 1 core · co-executing alongside RBNERR</div>
+              </div>
+              <div class="ph-count" style="background:rgba(31,57,109,.1);color:var(--navy)">4</div>
+            </div>
+            <div class="phase-row" onclick="filterPhase('p2')">
+              <div class="ph-dot" style="background:var(--c-p2)"></div>
+              <div class="ph-info">
+                <div class="ph-name" style="color:var(--cyan)">C-HAWQ GUIDES</div>
+                <div class="ph-desc">Phase 2 · Technical direction · agency or county leads procurement</div>
+              </div>
+              <div class="ph-count" style="background:rgba(46,159,199,.1);color:var(--cyan)">5</div>
+            </div>
+            <div class="phase-row" onclick="filterPhase('p3')">
+              <div class="ph-dot" style="background:var(--c-p3)"></div>
+              <div class="ph-info">
+                <div class="ph-name" style="color:var(--slate)">C-HAWQ ADVISES</div>
+                <div class="ph-desc">Phase 3 · Watershed scale · SFWMD, FDOT, or county drives</div>
+              </div>
+              <div class="ph-count" style="background:rgba(123,143,168,.1);color:var(--slate)">4</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:8px">
+            <div class="ov-title" style="margin-bottom:6px">Timeline Bar Key</div>
+            <div class="leg-row"><div class="leg-swatch" style="background:#3f886c;opacity:.28"></div>Scoping / Design</div>
+            <div class="leg-row"><div class="leg-swatch" style="background:#3f886c;opacity:.62"></div>Permitting</div>
+            <div class="leg-row"><div class="leg-swatch" style="background:#3f886c;opacity:1"></div>Construction</div>
+            <div class="leg-row"><div class="leg-swatch" style="background:#6b7a8a;opacity:.4;background-image:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,.55) 2px,rgba(255,255,255,.55) 3px)"></div>Pending / Acquisition</div>
+          </div>
+
+          <div class="ov-prompt">Click a project on the map or timeline to explore</div>
+        </div>
+
+        <!-- PROJECT DETAIL -->
+        <div id="pdet">
+          <div class="pd-nav" onclick="resetView()">← All projects</div>
+          <div class="pd-head">
+            <div class="pd-badges" id="pd-badges"></div>
+            <div class="pd-name" id="pd-name"></div>
+          </div>
+          <div class="pd-body">
+            <div class="pd-sec">
+              <div class="pd-lbl">Project Reference — 2014 RBNERR Watershed Packet</div>
+              <div class="img-frame">
+                <div class="img-frame-grid"></div>
+                <div class="img-frame-inner">
+                  <svg width="24" height="28" viewBox="0 0 24 28" fill="none"><rect x="2" y="2" width="16" height="21" rx="2" stroke="#7b8fa8" stroke-width="1.5"/><line x1="5" y1="8" x2="15" y2="8" stroke="#7b8fa8" stroke-width="1" stroke-linecap="round"/><line x1="5" y1="12" x2="15" y2="12" stroke="#7b8fa8" stroke-width="1" stroke-linecap="round"/><line x1="5" y1="16" x2="11" y2="16" stroke="#7b8fa8" stroke-width="1" stroke-linecap="round"/><circle cx="19" cy="23" r="4" fill="#3f886c" opacity=".5"/><line x1="17.5" y1="23" x2="20.5" y2="23" stroke="white" stroke-width="1.2" stroke-linecap="round"/><line x1="19" y1="21.5" x2="19" y2="24.5" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
+                  <div class="ifl" id="pd-imgref">2014 RBNERR Watershed Project Packet</div>
+                  <div class="ifn">Site maps &amp; design drawings — insert project packet image here</div>
+                </div>
+              </div>
+              <div class="img-cap" id="pd-imgcap"></div>
+            </div>
+            <div class="pd-sec">
+              <div class="pd-lbl">C-HAWQ's Role</div>
+              <div class="role-block" id="pd-role"></div>
+            </div>
+            <div class="pd-sec">
+              <div class="pd-lbl">Status</div>
+              <div class="pd-val" id="pd-status"></div>
+            </div>
+            <div class="pd-sec">
+              <div class="pd-lbl">Funding</div>
+              <div class="pd-val" id="pd-funding"></div>
+            </div>
+            <div class="pd-sec">
+              <div class="pd-lbl">Scope</div>
+              <div class="pd-val" id="pd-notes"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ── PHASE CONFIG ──────────────────────────────────────────────────────────────
+const PHASE_COLOR={active:'#1f396d',p1:'#3f886c',p2:'#2e9fc7',p3:'#7b8fa8'};
+const PHASE_LABEL={active:'C-HAWQ PARTNERS — Active/Funded',p1:'C-HAWQ PARTNERS — Phase 1 Core',p2:'C-HAWQ GUIDES — Phase 2',p3:'C-HAWQ ADVISES — Phase 3'};
+
+// ── PROJECT DATA ──────────────────────────────────────────────────────────────
+// gantt: month 0=Jan 2026 · t: build|permit|design|wait
+const P=[
+{id:'hc',name:'Henderson Creek Flatwoods + Powerline Road',short:'HC Flatwoods + Powerline Rd',
+ lat:26.074,lng:-81.718,r:1550,phase:'active',
+ roleType:'partners',
+ role:'C-HAWQ partners with RBNERR on construction oversight, permit coordination, and closing the budget gap. $4M BIL/NOAA is awarded and ready. C-HAWQ\'s role is closing the remaining budget gap (project costs have increased since the original BIL proposal), moving the Army Corps permit, and delivering a stronger bid specification than a standard state procurement would produce. Ready for construction within 90 days of Army Corps permit issuance.',
+ status:'Funded — Army Corps of Engineers permit pending (~3 years active review)',
+ funding:'$3,999,163 NOAA/BIL (awarded) · Budget gap under review',
+ notes:'Trash Road reroute and fill; 7 Powerline Road low-water crossing replacements. Restores natural sheet flow through the Henderson Creek flatwoods. Hard federal spend deadline: September 30, 2027.',
+ imgRef:'HC Flatwoods — see anchor project description and site access maps',
+ gantt:[{t:'wait',s:4,e:7,lbl:'Army Corps permit'},{t:'build',s:7,e:20,lbl:'Construction'}]},
+
+{id:'griffin',name:'Griffin Road Filter Marsh (6.1)',short:'Griffin Road Filter Marsh',
+ lat:26.048,lng:-81.726,r:490,phase:'p1',
+ roleType:'partners',
+ role:'C-HAWQ partners with RBNERR and Collier County on construction. Design was completed in 2014 and has never been built. Collier County\'s GRASIP Phase 1 already constructed the stormwater pipe infrastructure — C-HAWQ constructs the treatment marsh that infrastructure was designed to feed. Earthwork sequences directly from HC Flatwoods: same contractor, same RBNERR land manager, 2–3 miles apart. Eliminating a redundant mobilization reduces cost for both projects. Fill material from the Trash Road reroute can be engineered into the filter marsh substrate — the strongest material reuse opportunity in the corridor.',
+ status:'Design complete (2014) — construction unfunded',
+ funding:'TBD — Collier County + FDEP WQ / EPA 319 grant target',
+ notes:'43-acre RBNERR-managed property at Barefoot Williams Rd / Price Street. Brazilian Pepper removal, stormwater treatment wetland, outlet control structures. Captures and treats stormwater before it enters the Henderson Creek receiving area.',
+ imgRef:'Project 6.1 — see Griffin Road Filter Marsh site maps and 2014 design drawings',
+ gantt:[{t:'design',s:4,e:8,lbl:'Design review'},{t:'permit',s:8,e:12,lbl:'Permitting'},{t:'build',s:12,e:20,lbl:'Construction'}]},
+
+{id:'tamiami',name:'Tamiami & Manatee Rd Stormwater Treatment (2.6)',short:'Tamiami Stormwater Treatment',
+ lat:26.043,lng:-81.703,r:560,phase:'p1',
+ roleType:'partners',
+ role:'C-HAWQ partners with RBNERR on construction on a 66-acre state-owned, RBNERR-managed parcel — no land acquisition required. This parcel has been in state ownership since 1997. The project captures peak Henderson Creek and Tamiami Canal flows before they surge into estuarine receiving waters, directly protecting water quality and salinity balance downstream. Fill material from HC Flatwoods Trash Road reroute is a viable source for the containment berm, further tying Phase 1 projects together operationally. SFWMD partnership on the pump station is a natural conversation given SFWMD\'s stated interest and Marco Island\'s existing water supply permit on Henderson Creek Canal.',
+ status:'Conceptual — 66-acre RBNERR-owned parcel (state acquisition 1997)',
+ funding:'TBD — no land acquisition cost · SFWMD co-fund candidate for pump station',
+ notes:'Containment berm, pump station, and gravity discharge weir on existing wetland parcel north of US 41/Tamiami Trail. Melaleuca removal required. Addresses peak flow timing before estuarine discharge — direct complement to HC Flatwoods upstream restoration.',
+ imgRef:'Project 2.6 — see Tamiami & Manatee Road parcel boundary map and stormwater flow diagrams',
+ gantt:[{t:'design',s:8,e:14,lbl:'Design'},{t:'permit',s:14,e:18,lbl:'Permitting'},{t:'build',s:18,e:26,lbl:'Construction'}]},
+
+{id:'manatee',name:'Manatee Road Area Improvements (6.4)',short:'Manatee Road Improvements',
+ lat:26.037,lng:-81.684,r:510,phase:'p1',
+ roleType:'partners',
+ role:'C-HAWQ partners with RBNERR and Collier County on construction for CR 951 right-of-way access. FDOT permit coordination for culvert work under CR 951 is initiated in Phase 1 — this is a known lead-time item and is planned for, not treated as a Phase 2 discovery. Same equipment type as HC Flatwoods (excavators, culvert forms, dewatering). Earthwork contractor sequences from HC Flatwoods through this site. Ditch spoil can be evaluated for material transfer to the Tamiami Treatment berm if construction windows align.',
+ status:'Conceptual',
+ funding:'TBD — FDEP Water Quality grant + Collier County stormwater CIP',
+ notes:'5,500 LF trapezoidal ditch enlargement receiving US 41 Canal and upland flows. Culverts under CR 951/Collier Blvd; spreader swales directing freshwater into RBNERR receiving areas. Attenuates Henderson Creek tributary flows and improves water quality before reserve discharge.',
+ imgRef:'Project 6.4 — see Manatee Road ditch alignment and culvert location maps',
+ gantt:[{t:'design',s:7,e:13,lbl:'Scoping + design'},{t:'permit',s:13,e:17,lbl:'Permit + FDOT coord'},{t:'build',s:17,e:26,lbl:'Construction'}]},
+
+{id:'cr951',name:'CR 951 Cross Drain Culverts (6.7)',short:'CR 951 Cross Drain Culverts',
+ lat:26.025,lng:-81.691,r:530,phase:'p2',
+ roleType:'guides',
+ role:'C-HAWQ guides coordination with Collier County and FDOT. Collier County\'s stormwater capital improvement program is the natural procurement vehicle for this project. C-HAWQ\'s role is ensuring this work is permitted and funded before HC Flatwoods construction completes — without these culverts, the flatwoods restoration moves the sheet flow bottleneck one step south without clearing it. This is the most time-sensitive of the Phase 2 projects: it must be on a parallel track with Phase 1.',
+ status:'Conceptual — FDOT coordination required for SR 951/Collier Blvd work',
+ funding:'TBD — Collier County stormwater CIP',
+ notes:'Additional culverts under SR 951 with spreader swales. Restores east-to-west sheet flow currently blocked by the road embankment — directly downstream of HC Flatwoods restoration. Without this, Phase 1 hydrologic gains are incomplete.',
+ imgRef:'Project 6.7 — see CR 951 Cross Drain culvert location and hydraulic alignment maps',
+ gantt:[{t:'design',s:10,e:16,lbl:'Scoping + FDOT'},{t:'permit',s:16,e:21,lbl:'Permit'},{t:'build',s:21,e:28,lbl:'Construction'}]},
+
+{id:'bmp',name:'HC Development BMP Retrofit (6.2)',short:'HC Development BMP Retrofit',
+ lat:26.057,lng:-81.709,r:700,phase:'p2',
+ roleType:'guides',
+ role:'C-HAWQ guides a rolling residential BMP program with Collier County. This is a distinct, parallel program — not a construction contract. Rain garden installation, swale improvements, and BMP retrofits in residential developments (Artesia, Pebblebrooke) immediately north of the reserve address urban stormwater outfalls from the same sub-basin. This work runs alongside Phase 1 construction and activates residents as advocates for the broader corridor restoration.',
+ status:'Conceptual — ongoing rolling residential program',
+ funding:'TBD — EPA 319 nonpoint source + Collier County BMP cost-share',
+ notes:'Small-scale BMPs in residential developments directly north of RBNERR boundary. Addresses residential and HOA-managed outfalls into Henderson Creek corridor from the urban side — complementary to the reserve-side restoration in Phase 1.',
+ imgRef:'Project 6.2 — see HC Development BMP retrofit area map',
+ gantt:[{t:'design',s:10,e:14,lbl:'Program design'},{t:'build',s:14,e:55,lbl:'Rolling implementation'}]},
+
+{id:'hcwqt',name:'HC Water Quality Treatment Area (6.3)',short:'HC Water Quality Treatment',
+ lat:26.044,lng:-81.714,r:420,phase:'p2',
+ roleType:'guides',
+ role:'C-HAWQ guides coordination with FDEP on Algal Turf Scrubber implementation at the HC Canal / US 41 interface. Henderson Creek Canal is listed as impaired for both nutrients and dissolved oxygen — this project addresses listed impairment directly and strengthens TMDL compliance documentation for the broader corridor. C-HAWQ engages after Army Corps permit resolution for HC Flatwoods, when the partnership has operational momentum and FDEP can confirm ATS as the preferred technology pathway.',
+ status:'Conceptual — HC Canal WOTUS-listed impaired (nutrients + dissolved oxygen)',
+ funding:'TBD — FDEP BMAP/TMDL compliance funding',
+ notes:'Algal Turf Scrubber installation at HC Canal / US 41 interface. Addresses the listed impairment at the hydraulic interface between urban runoff and the Henderson Creek system. Specialist ATS contractor — separate procurement from earthwork.',
+ imgRef:'Project 6.3 — see HC Canal water quality assessment and ATS concept diagram',
+ gantt:[{t:'design',s:14,e:21,lbl:'Tech confirmation'},{t:'permit',s:21,e:26,lbl:'FDEP BMAP permit'},{t:'build',s:26,e:34,lbl:'Construction'}]},
+
+{id:'fiddlers',name:"Fiddler's Creek Spreader System (6.5)",short:"Fiddler's Creek Spreader",
+ lat:26.016,lng:-81.672,r:550,phase:'p2',
+ roleType:'partners',
+ role:"C-HAWQ partners with RBNERR on construction on RBNERR-managed land — the same land management relationship as Phase 1. The earthwork contractor established through HC Flatwoods and Griffin Road can sequence through this site, covering the full Henderson Creek-to-estuarine-interface corridor in one contractor relationship. Brazilian Pepper removal at this site is coordinated with 6.1 Griffin Road's invasive plant removal: one subcontractor covers both sites, cutting mobilization cost. This project restores sheet flow through an abandoned railroad grade that has been blocking natural water distribution to RBNERR's southern receiving areas.",
+ status:'Conceptual — RBNERR-managed land; same land manager as Phase 1',
+ funding:"TBD — RBNERR-sponsored grant; RESTORE Act water quality funds",
+ notes:"Earthwork to breach abandoned railroad grade on RBNERR property south of Fiddler's Creek development. Broad-crested weirs, spreader swales, Brazilian Pepper removal. Restores natural freshwater distribution to southern RBNERR estuarine receiving areas.",
+ imgRef:"Project 6.5 — see Fiddler's Creek railroad grade alignment and spreader system diagrams",
+ gantt:[{t:'design',s:17,e:22,lbl:'Design'},{t:'permit',s:22,e:26,lbl:'Permit'},{t:'build',s:26,e:33,lbl:'Construction'}]},
+
+{id:'royalpalm',name:'Royal Palm Estates / Auto Ranch Outfall (6.6)',short:'Royal Palm Estates Outfall',
+ lat:26.011,lng:-81.677,r:340,phase:'p2',
+ roleType:'advises',
+ role:'Collier County Stormwater leads this project. C-HAWQ provides technical advisory support and can facilitate contractor continuity: the earthwork contractor active on 6.5 can sequence directly to this site under a county piggyback contract, accelerating procurement and reducing mobilization cost for the county. C-HAWQ\'s coordination value here is practical — reducing the county\'s procurement burden so this work happens alongside, not after, the Phase 2 window.',
+ status:'Conceptual — Collier County Stormwater leads',
+ funding:'Collier County stormwater capital program',
+ notes:'Failing outfall from Royal Palm Estates (formerly Boyne South) development adjacent to RBNERR boundary. Berm removal, culvert replacement, spreader swale construction. Improves water quality and quantity entering RBNERR\'s southern receiving areas.',
+ imgRef:'Project 6.6 — see Royal Palm Estates outfall location and drainage area maps',
+ gantt:[{t:'design',s:15,e:21,lbl:'County scoping'},{t:'permit',s:21,e:25,lbl:'Permit'},{t:'build',s:25,e:31,lbl:'Construction'}]},
+
+{id:'reservoir',name:'HC Off-line Storage Reservoir (2.4)',short:'HC Off-line Storage Reservoir',
+ lat:26.063,lng:-81.693,r:710,phase:'p3',
+ roleType:'partners',
+ role:'C-HAWQ partners with SFWMD and Collier County on a large-scale seasonal water storage facility converted from an existing quarry on CR 951. Land acquisition from the private quarry owner is the primary near-term action — quarry owners negotiate on their own timeline and the conversation should begin now. When operational, this reservoir captures wet season Henderson Creek Canal flows and releases them seasonally to Belle Meade, dramatically improving freshwater delivery to the estuary system. This is the single project with the largest long-term hydrologic impact in the corridor.',
+ status:'Conceptual — land acquisition from private quarry owner required',
+ funding:'TBD — multi-agency: SFWMD + Collier County + federal infrastructure funds',
+ notes:'Convert existing quarry on CR 951 to elevated water conservation reservoir. Containment berm, pump station, gravity control structures. Captures wet season HC Canal flows for controlled seasonal release to Belle Meade and the estuarine system.',
+ imgRef:'Project 2.4 — see HC Off-line Storage Reservoir quarry location and concept design',
+ gantt:[{t:'wait',s:20,e:32,lbl:'Land acquisition'},{t:'design',s:32,e:38,lbl:'Design'},{t:'permit',s:38,e:44,lbl:'Permit'},{t:'build',s:44,e:55,lbl:'Construction'}]},
+
+{id:'sabalpalm',name:'Sabal Palm Road Spreader System (2.5)',short:'Sabal Palm Road Spreader',
+ lat:26.095,lng:-81.663,r:480,phase:'p3',
+ roleType:'guides',
+ role:'C-HAWQ coordinates with SFWMD and Collier County as part of the broader Belle Meade sheet flow restoration cluster. This project is upstream of the HC core work — its completion increases the freshwater volume and quality entering the Henderson Creek system, making Phase 1 and Phase 2 investments more ecologically effective over time. Partially constructed (mitigation culverts from adjacent development are already in place).',
+ status:'Partially constructed — remaining berm removal and road removal unfunded',
+ funding:'TBD — SFWMD cost-share + Collier County stormwater restoration funds',
+ notes:'Road and berm removal in South Belle Meade to restore natural sheet flow southward. Approximately 10–15 miles north of HC Flatwoods. Pairs with North Belle Meade projects (2.1, 2.2) as a sequenced Belle Meade flow restoration cluster.',
+ imgRef:'Project 2.5 — see Sabal Palm Road Spreader system alignment and Belle Meade flow direction maps',
+ gantt:[{t:'design',s:22,e:28,lbl:'Scoping'},{t:'permit',s:28,e:34,lbl:'Permit'},{t:'build',s:34,e:44,lbl:'Construction'}]},
+
+{id:'us41',name:'US 41 Reconstruction & Culvert Replacement (3.2)',short:'US 41 Culvert Replacement',
+ lat:26.059,lng:-81.654,r:600,phase:'p3',
+ roleType:'advises',
+ role:'FDOT leads this project as part of the US 41/Tamiami Trail corridor improvement program. C-HAWQ provides technical advisory during FDOT\'s design phase to ensure culvert sizing and placement accommodate the upstream flow improvements made in Phases 1 and 2. Engagement must happen early in the FDOT project development process — once design is finalized, specifications are very difficult to change. C-HAWQ\'s role is technical stakeholder, not project lead or co-fund partner.',
+ status:'Future — contingent on FDOT US 41 corridor improvement program schedule',
+ funding:'FDOT capital budget',
+ notes:'Culvert replacement as part of the future US 41 road improvement project. US 41 is the critical east–west barrier between the agricultural Belle Meade area and the estuarine receiving waters. Properly sized culverts are essential for the long-term hydrologic connection from Belle Meade through to the estuary.',
+ imgRef:'Project 3.2 — see US 41 culvert replacement alignment and hydraulic capacity data',
+ gantt:[{t:'wait',s:14,e:32,lbl:'FDOT program coordination'},{t:'design',s:32,e:39,lbl:'Design'},{t:'permit',s:39,e:44,lbl:'Permit'},{t:'build',s:44,e:55,lbl:'Construction'}]},
+
+{id:'ggcanal',name:'Golden Gate Canal Diverter Structure (2.3)',short:'Golden Gate Canal Diverter',
+ lat:26.150,lng:-81.707,r:580,phase:'p3',
+ roleType:'advises',
+ role:'SFWMD leads this project independently. C-HAWQ\'s coordination action is confirming current project status with SFWMD and incorporating the 100 cfs flow augmentation into hydrodynamic modeling for the south-of-41 corridor. This ensures HC Flatwoods, the Tamiami Treatment parcel, and CR 951 culverts are sized for future augmented flows — not just today\'s baseline. When operational, this structure is one of the most significant long-term freshwater augmentation sources for the Henderson Creek system.',
+ status:'Design development as of 2014 — SFWMD-led; current status to be confirmed',
+ funding:'SFWMD-funded independently',
+ notes:'100 cfs pump station diverting Golden Gate Canal flows south into Henderson Creek Canal via 5,200 LF new canal. When operational, directly augments Henderson Creek freshwater flows, increasing the ecological value of all downstream corridor investments.',
+ imgRef:'Project 2.3 — see Golden Gate Canal Diverter pump station and new canal alignment maps',
+ gantt:[{t:'design',s:4,e:18,lbl:'SFWMD design (reference)'},{t:'permit',s:18,e:28,lbl:'SFWMD permit'},{t:'build',s:28,e:40,lbl:'SFWMD construction'}]}
+];
+
+// ── MAP ───────────────────────────────────────────────────────────────────────
+const MAP=L.map('map',{center:[26.065,-81.695],zoom:12});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>',maxZoom:19
+}).addTo(MAP);
+
+const circles={},dots={};
+P.forEach(p=>{
+  const col=PHASE_COLOR[p.phase];
+  const isRef=p.phase==='p3';
+  const circ=L.circle([p.lat,p.lng],{radius:p.r,color:col,weight:isRef?1.5:2,
+    fillColor:col,fillOpacity:isRef?.08:.2,opacity:isRef?.5:.9}).addTo(MAP);
+  const dot=L.circleMarker([p.lat,p.lng],{radius:5.5,color:col,weight:2,fillColor:col,fillOpacity:1}).addTo(MAP);
+  const pbadgeCls=`ppb" style="background:${col}`;
+  const pop=`<div class="ptit">${p.short}</div><div><span class="${pbadgeCls}">${PHASE_LABEL[p.phase]}</span></div><div class="pst">${p.status}</div>`;
+  circ.bindPopup(pop); dot.bindPopup(pop);
+  circ.on('click',()=>showDetail(p));
+  dot.on('click',()=>showDetail(p));
+  circles[p.id]=circ; dots[p.id]=dot;
+});
+
+function filterPhase(ph){
+  P.forEach(p=>{
+    const col=PHASE_COLOR[p.phase];
+    const active=p.phase===ph||p.phase===_partnerPair[ph];
+    circles[p.id].setStyle({fillOpacity:active?.3:.04,opacity:active?.95:.2});
+    dots[p.id].setStyle({fillOpacity:active?1:.15,opacity:active?1:.15});
+  });
+}
+const _partnerPair={active:'p1',p1:'active'};
+
+function resetMapOpacity(){
+  P.forEach(p=>{
+    const isRef=p.phase==='p3';
+    circles[p.id].setStyle({fillOpacity:isRef?.08:.2,opacity:isRef?.5:.9});
+    dots[p.id].setStyle({fillOpacity:1,opacity:1});
+  });
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────────────────────────
+function showDetail(proj){
+  document.getElementById('overview').style.display='none';
+  const pd=document.getElementById('pdet');
+  pd.style.display='flex';
+
+  const col=PHASE_COLOR[proj.phase];
+  const roleBadge={partners:'badge-partners',guides:'badge-guides',advises:'badge-advises'};
+  const roleLabel={partners:'C-HAWQ PARTNERS',guides:'C-HAWQ GUIDES',advises:'C-HAWQ ADVISES'};
+  document.getElementById('pd-badges').innerHTML=
+    `<span class="badge" style="background:${col};color:#fff">${PHASE_LABEL[proj.phase]}</span>`+
+    `<span class="badge ${roleBadge[proj.roleType]||'badge-advises'}">${roleLabel[proj.roleType]||'C-HAWQ ADVISES'}</span>`;
+  document.getElementById('pd-name').textContent=proj.name;
+
+  const roleBlock=document.getElementById('pd-role');
+  roleBlock.className='role-block'+(proj.roleType==='guides'?' coord':proj.roleType==='advises'?' advise':'');
+  roleBlock.textContent=proj.role;
+
+  document.getElementById('pd-status').textContent=proj.status;
+  document.getElementById('pd-funding').textContent=proj.funding;
+  document.getElementById('pd-notes').textContent=proj.notes;
+  document.getElementById('pd-imgcap').textContent=proj.imgRef;
+  document.getElementById('pd-imgref').textContent='2014 RBNERR Watershed Project Packet';
+
+  // dim non-selected on map
+  P.forEach(p=>{
+    const sel=p.id===proj.id;
+    circles[p.id].setStyle({fillOpacity:sel?.35:.04,opacity:sel?1:.2,weight:sel?3:1.5});
+    dots[p.id].setStyle({radius:sel?7.5:5,fillOpacity:sel?1:.2,opacity:sel?1:.2});
+  });
+  highlightGantt(proj.id);
+}
+
+function resetView(){
+  document.getElementById('overview').style.display='block';
+  document.getElementById('pdet').style.display='none';
+  resetMapOpacity();
+  highlightGantt(null);
+}
+
+// ── GANTT ─────────────────────────────────────────────────────────────────────
+// month 0=Jan 2026 · display May 2026(4) → Dec 2031(71) · deadline=Sep 2027(20)
+const GSTART=4,GEND=71,DEADLINE=20;
+const LWIDTH=176,ROW_H=22,ROW_GAP=4,AXIS_H=28,LPAD=6,RPAD=14;
+
+function mkSVG(tag,a){
+  const e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+}
+
+function renderGantt(){
+  const svg=document.getElementById('gantt');
+  const scrl=document.getElementById('tlscroll');
+  const avail=Math.max(scrl.clientWidth-LWIDTH-LPAD-RPAD,480);
+  const ppm=avail/(GEND-GSTART);
+  const rows=P.filter(x=>x.gantt);
+
+  // Phase group separators — build index list
+  const PHASE_ORDER=['active','p1','p2','p3'];
+  const grouped=[];
+  PHASE_ORDER.forEach(ph=>{
+    const items=rows.filter(x=>x.phase===ph);
+    if(items.length) grouped.push({ph,items});
+  });
+  const PHASE_LABEL_SHORT={active:'C-HAWQ PARTNERS — Active / Funded',p1:'C-HAWQ PARTNERS — Phase 1: HC Core Package',p2:'C-HAWQ GUIDES — Phase 2: Parallel Tracks',p3:'C-HAWQ ADVISES — Phase 3: Watershed Scale'};
+
+  // compute total rows with group headers
+  let totalRows=rows.length+grouped.length; // +1 per group for header
+  const totalH=AXIS_H+totalRows*(ROW_H+ROW_GAP)+8;
+
+  svg.setAttribute('width',LWIDTH+avail+LPAD+RPAD);
+  svg.setAttribute('height',totalH);
+  svg.innerHTML='';
+
+  const defs=mkSVG('defs',{});
+  const pat=mkSVG('pattern',{id:'hatch',patternUnits:'userSpaceOnUse',width:6,height:6});
+  pat.appendChild(mkSVG('line',{x1:0,y1:6,x2:6,y2:0,stroke:'rgba(255,255,255,.55)','stroke-width':1.5}));
+  defs.appendChild(pat); svg.appendChild(defs);
+
+  const g=mkSVG('g',{transform:`translate(${LPAD},0)`});
+  svg.appendChild(g);
+
+  function mx(m){return LWIDTH+(m-GSTART)*ppm;}
+
+  // year + quarter grid
+  for(let yr=2026;yr<=2031;yr++){
+    const m=(yr-2026)*12;
+    if(m>GEND) continue;
+    const x=mx(m);
+    g.appendChild(mkSVG('line',{x1:x,y1:AXIS_H-4,x2:x,y2:totalH,stroke:'#ccd4de','stroke-width':1}));
+    const yt=mkSVG('text',{x:x+2,y:15,'font-size':12,'font-weight':700,fill:'#3a4a5a'});
+    yt.textContent=yr; g.appendChild(yt);
+    [3,6,9].forEach(q=>{
+      const qm=m+q;
+      if(qm<GSTART||qm>GEND) return;
+      const qx=mx(qm);
+      g.appendChild(mkSVG('line',{x1:qx,y1:AXIS_H,x2:qx,y2:totalH,stroke:'#e8eef4','stroke-width':.5}));
+      const qt=mkSVG('text',{x:qx+1.5,y:24,'font-size':8,fill:'#aabac8'});
+      qt.textContent=['','Q2','Q3','Q4'][q/3]; g.appendChild(qt);
+    });
+  }
+  g.appendChild(mkSVG('line',{x1:LWIDTH,y1:AXIS_H,x2:LWIDTH+avail,y2:AXIS_H,stroke:'#bccad6','stroke-width':1.5}));
+
+  // deadline
+  const dlx=mx(DEADLINE);
+  g.appendChild(mkSVG('line',{x1:dlx,y1:0,x2:dlx,y2:totalH,stroke:'#cc3030','stroke-width':2,'stroke-dasharray':'5,3'}));
+  const dlbg=mkSVG('rect',{x:dlx-1,y:1,width:55,height:15,fill:'#cc3030',rx:3}); g.appendChild(dlbg);
+  const dlt=mkSVG('text',{x:dlx+3,y:12,'font-size':9,'font-weight':700,fill:'#fff'});
+  dlt.textContent='Sep 2027'; g.appendChild(dlt);
+  g.appendChild(mkSVG('polygon',{points:`${dlx-5},${AXIS_H} ${dlx+5},${AXIS_H} ${dlx},${AXIS_H+7}`,fill:'#cc3030'}));
+
+  // rows
+  let rowIdx=0;
+  grouped.forEach(({ph,items})=>{
+    const col=PHASE_COLOR[ph];
+    // group header row
+    const gy=AXIS_H+rowIdx*(ROW_H+ROW_GAP)+2;
+    g.appendChild(mkSVG('rect',{x:2,y:gy-1,width:LWIDTH+avail-4,height:ROW_H,fill:col,opacity:.07,rx:2}));
+    const gt=mkSVG('text',{x:LPAD,y:gy+13,'font-size':10,'font-weight':700,fill:col,'letter-spacing':'.3'});
+    gt.textContent=PHASE_LABEL_SHORT[ph]; g.appendChild(gt);
+    // phase divider line spanning chart area
+    const gl=mkSVG('line',{x1:LWIDTH,y1:gy+ROW_H/2,x2:LWIDTH+avail,y2:gy+ROW_H/2,stroke:col,'stroke-width':.8,'stroke-dasharray':'4,3',opacity:.4});
+    g.appendChild(gl);
+    rowIdx++;
+
+    items.forEach((proj,i)=>{
+      const y=AXIS_H+rowIdx*(ROW_H+ROW_GAP)+2;
+      if(rowIdx%2===0){
+        g.appendChild(mkSVG('rect',{x:2,y:y-1,width:LWIDTH+avail-4,height:ROW_H,fill:'#f6f9fc',rx:2}));
+      }
+      const lbl=mkSVG('text',{x:LPAD,y:y+14,'font-size':10.5,fill:col,'font-weight':600});
+      lbl.setAttribute('class',`glbl glbl-${proj.id}`);
+      const short=proj.short.length>25?proj.short.slice(0,23)+'…':proj.short;
+      lbl.textContent=short; g.appendChild(lbl);
+
+      proj.gantt.forEach(bar=>{
+        const bx=mx(Math.max(bar.s,GSTART));
+        const bw=Math.max((bar.e-Math.max(bar.s,GSTART))*ppm,3);
+        const by=y+3,bh=ROW_H-7;
+        const op=bar.t==='build'?1:bar.t==='permit'?.62:bar.t==='wait'?.3:.28;
+        const rect=mkSVG('rect',{x:bx,y:by,width:bw,height:bh,fill:col,opacity:op,rx:3,
+          stroke:col,'stroke-width':.5,'stroke-opacity':.45});
+        rect.setAttribute('class','gbar'); rect.setAttribute('data-id',proj.id);
+        rect.style.cursor='pointer'; g.appendChild(rect);
+        if(bar.t==='wait'){
+          const ho=mkSVG('rect',{x:bx,y:by,width:bw,height:bh,rx:3,fill:'url(#hatch)',opacity:.5});
+          g.appendChild(ho);
+        }
+        if(bw>32){
+          const bt=mkSVG('text',{x:bx+4,y:by+bh-3,'font-size':9,'pointer-events':'none'});
+          bt.setAttribute('fill',bar.t==='build'?'rgba(255,255,255,.9)':col);
+          bt.setAttribute('fill-opacity',bar.t==='build'?'.9':'.72');
+          bt.textContent=bar.lbl; g.appendChild(bt);
+        }
+      });
+      rowIdx++;
+    });
+  });
+
+  svg.querySelectorAll('.gbar').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const proj=P.find(x=>x.id===b.getAttribute('data-id'));
+      if(proj) showDetail(proj);
+    });
+  });
+}
+
+function highlightGantt(id){
+  document.getElementById('gantt').querySelectorAll('.gbar').forEach(b=>{
+    const match=b.getAttribute('data-id')===id;
+    b.setAttribute('stroke-width',match?2.5:.5);
+    b.setAttribute('stroke-opacity',match?1:.45);
+    b.setAttribute('opacity',id===null?undefined:match?undefined:.18);
+  });
+}
+
+setTimeout(renderGantt,150);
+window.addEventListener('resize',()=>setTimeout(renderGantt,50));
+</script>
+</body>
+</html>
